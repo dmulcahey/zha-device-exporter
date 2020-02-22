@@ -55,3 +55,5 @@ async def async_setup(hass, config):
         export_devices_handler,
         schema=SERVICE_SCHEMAS[SERVICE_EXPORT_DEVICES],
     )
+
+    return True
