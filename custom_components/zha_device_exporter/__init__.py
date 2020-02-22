@@ -45,7 +45,7 @@ async def async_setup(hass, config):
 
     async def export_devices_handler(service):
         """Export ZHA devices to a json file right now."""
-        file_name = os.path.join(output_dir, "zha-devices")
+        file_name = os.path.join(output_dir, "zha-devices.json")
         await hass.async_add_executor_job(save_json, file_name, get_devices())
 
     hass.services.async_register(
