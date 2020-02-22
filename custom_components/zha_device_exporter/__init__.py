@@ -26,7 +26,6 @@ async def async_setup(hass, config):
         return False
 
     output_dir = os.path.join(hass.config.config_dir, CONFIG_OUTPUT_DIR_NAME)
-    hass.data[DOMAIN][ATTR_OUTPUT_DIR] = output_dir
 
     def mkdir(directory):
         try:
@@ -46,7 +45,7 @@ async def async_setup(hass, config):
 
     async def export_devices_handler(service):
         """Export ZHA devices to a json file right now."""
-        file_name = os.path.join(hass.data[DOMAIN][ATTR_OUTPUT_DIR], "zha-devices")
+        file_name = os.path.join(output_dir, "zha-devices")
         await hass.async_add_executor_job(save_json, file_name, get_devices())
 
     hass.services.async_register(
