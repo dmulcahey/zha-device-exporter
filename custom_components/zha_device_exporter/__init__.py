@@ -18,6 +18,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.json import save_json
 from slugify import slugify
+from zigpy.quirks import CustomDevice
+from zigpy.quirks.v2 import CustomDeviceV2
 
 ATTR_OUTPUT_DIR = "output_dir"
 DOMAIN = "zha_device_exporter"
@@ -71,6 +73,15 @@ async def async_setup(hass, config):
             device_info[CLUSTER_DETAILS] = get_endpoint_cluster_attr_data(
                 zha_device_proxy.device
             )
+
+            if isinstance(zha_device_proxy.device.device, CustomDeviceV2):
+                device_info["original_signature"] = (
+                    zha_device_proxy.device.device.replacement
+                )
+            elif isinstance(zha_device_proxy.device.device, CustomDevice):
+                device_info["original_signature"] = (
+                    zha_device_proxy.device.device.signature
+                )
 
             # add ZHA library entities
             platform_entities = collections.defaultdict(list)
