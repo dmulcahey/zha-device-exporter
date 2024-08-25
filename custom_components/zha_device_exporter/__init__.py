@@ -1,5 +1,7 @@
 """Custom component used to export ZHA Zigbee devices to a JSON file."""
 
+import collections
+import dataclasses
 import logging
 import os
 from typing import Any
@@ -51,21 +53,51 @@ async def async_setup(hass, config):
     async def export_devices_handler(service) -> None:
         """Export ZHA device diagnostics files."""
         gateway_proxy: ZHAGatewayProxy = get_zha_gateway_proxy(hass)
+        processed_devices: set[str] = set()  # used to avoid duplicate files
         for device in gateway_proxy.device_proxies.values():
             zha_device_proxy: ZHADeviceProxy = async_get_zha_device_proxy(
                 hass, device.device_id
             )
+            # slug for file name and deduplication
+            manufacturer_model_slug = slugify(
+                f"{zha_device_proxy.device.manufacturer}-{zha_device_proxy.device.model}"
+            )
+            if manufacturer_model_slug in processed_devices:
+                # skip already processed devices
+                continue
+            processed_devices.add(manufacturer_model_slug)
+
             device_info: dict[str, Any] = zha_device_proxy.zha_device_info
             device_info[CLUSTER_DETAILS] = get_endpoint_cluster_attr_data(
                 zha_device_proxy.device
             )
+
+            # add ZHA library entities
+            platform_entities = collections.defaultdict(list)
+            for (
+                (platform, unique_id),
+                platform_entity,
+            ) in zha_device_proxy.device.platform_entities.items():
+                lib_entity_info = {
+                    "info_object": dataclasses.asdict(platform_entity.info_object),
+                    "state": platform_entity.state,
+                }
+                for cluster_handler_info in lib_entity_info["info_object"][
+                    "cluster_handlers"
+                ]:
+                    cluster_info = cluster_handler_info["cluster"]
+                    if cluster_info is not None:
+                        cluster_info.pop("commands", None)
+                platform_entities[platform].append(lib_entity_info)
+            device_info["zha_lib_entities"] = platform_entities
             file_name = os.path.join(
                 output_dir,
-                slugify(
-                    f"{zha_device_proxy.device.manufacturer}-{zha_device_proxy.device.model}.json"
-                ),
+                f"{manufacturer_model_slug}.json",
             )
-            await hass.async_add_executor_job(save_json, file_name, device_info)
+            try:
+                await hass.async_add_executor_job(save_json, file_name, device_info)
+            except Exception as e:
+                LOGGER.error("Couldn't save '%s' file: %s", file_name, e)
 
     hass.services.async_register(
         DOMAIN,
