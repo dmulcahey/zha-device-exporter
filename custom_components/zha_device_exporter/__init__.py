@@ -5,6 +5,7 @@ import dataclasses
 import logging
 import os
 from typing import Any
+from copy import deepcopy
 
 import voluptuous as vol
 from homeassistant.components.zha.diagnostics import get_endpoint_cluster_attr_data
@@ -64,9 +65,11 @@ async def async_setup(hass, config):
             manufacturer_model_slug = slugify(
                 f"{zha_device_proxy.device.manufacturer}-{zha_device_proxy.device.model}"
             )
+
+            # skip already processed devices
             if manufacturer_model_slug in processed_devices:
-                # skip already processed devices
                 continue
+
             processed_devices.add(manufacturer_model_slug)
 
             device_info: dict[str, Any] = zha_device_proxy.zha_device_info
@@ -74,14 +77,26 @@ async def async_setup(hass, config):
                 zha_device_proxy.device
             )
 
+            original_signature = None
             if isinstance(zha_device_proxy.device.device, CustomDeviceV2):
-                device_info["original_signature"] = (
+                original_signature = deepcopy(
                     zha_device_proxy.device.device.replacement
                 )
             elif isinstance(zha_device_proxy.device.device, CustomDevice):
-                device_info["original_signature"] = (
-                    zha_device_proxy.device.device.signature
-                )
+                original_signature = deepcopy(zha_device_proxy.device.device.signature)
+
+            # if we have a quirked device we add the original signature to the output and
+            # convert the profile_id, device_type, input_clusters and output_clusters to hex
+            # representation to make it consistent with the rest of the data
+            if original_signature:
+                for ep in original_signature["endpoints"].values():
+                    ep["profile_id"] = f"0x{ep["profile_id"]:04x}"
+                    ep["device_type"] = f"0x{ep["device_type"]:04x}"
+                    ep["input_clusters"] = [f"0x{c:04x}" for c in ep["input_clusters"]]
+                    ep["output_clusters"] = [
+                        f"0x{c:04x}" for c in ep["output_clusters"]
+                    ]
+                device_info["original_signature"] = original_signature
 
             # add ZHA library entities
             platform_entities = collections.defaultdict(list)
@@ -101,6 +116,7 @@ async def async_setup(hass, config):
                         cluster_info.pop("commands", None)
                 platform_entities[platform].append(lib_entity_info)
             device_info["zha_lib_entities"] = platform_entities
+
             file_name = os.path.join(
                 output_dir,
                 f"{manufacturer_model_slug}.json",
