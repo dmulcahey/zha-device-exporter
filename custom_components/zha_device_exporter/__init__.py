@@ -90,12 +90,18 @@ async def async_setup(hass, config):
             # representation to make it consistent with the rest of the data
             if original_signature:
                 for ep in original_signature["endpoints"].values():
-                    ep["profile_id"] = f"0x{ep["profile_id"]:04x}"
-                    ep["device_type"] = f"0x{ep["device_type"]:04x}"
-                    ep["input_clusters"] = [f"0x{c:04x}" for c in ep["input_clusters"]]
-                    ep["output_clusters"] = [
-                        f"0x{c:04x}" for c in ep["output_clusters"]
-                    ]
+                    if "profile_id" in ep:
+                        ep["profile_id"] = f"0x{ep["profile_id"]:04x}"
+                    if "device_type" in ep:
+                        ep["device_type"] = f"0x{ep["device_type"]:04x}"
+                    if "input_clusters" in ep:
+                        ep["input_clusters"] = [
+                            f"0x{c:04x}" for c in ep["input_clusters"]
+                        ]
+                    if "output_clusters" in ep:
+                        ep["output_clusters"] = [
+                            f"0x{c:04x}" for c in ep["output_clusters"]
+                        ]
                 device_info["original_signature"] = original_signature
 
             # add ZHA library entities
